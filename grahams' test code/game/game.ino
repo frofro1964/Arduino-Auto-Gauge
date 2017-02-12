@@ -58,7 +58,7 @@ void play() {
   while( digitalRead(btnPin) ) {
     lcd.clear();
     lcd.setCursor( 0, 0 );
-    lcd.print( "Target: " );
+    lcd.print( "Stop Bar At " );
     lcd.print( number );
     for ( position; position<16; position+=1 ) {
       if ( digitalRead(btnPin) ) {
