@@ -1,10 +1,13 @@
 /*  Use a stepper motor as a dial gauge to display measurements taken with a temperature sensor.
+ *  Produces jerky dial movements because DS18B20 takes .6 seconds to produce a measurement every time it is queried.
  *  Author: Graham Home
  *  Hardware:
  *  Arduino Nano
  *  DS18B20 Temperature Sensor
  *  Switech X27 168 Stepper Motor
  */
+ 
+using namespace std;
 
 // Libraries needed for temperature sensor
 #include <OneWire.h>
@@ -39,6 +42,9 @@ int position = maxPos;
 // On/off toggle
 bool on = true;
 
+// Average temperature in degrees Fahrenheit (-1 by default to signal no measurement made)
+float avgTemp = -1;
+
 void setup() {
   // Set up I/O pins
   pinMode( stepPin, OUTPUT ); 
@@ -55,26 +61,38 @@ void setup() {
   sensors.begin();
 
   // start serial port
-  // Serial.begin(9600);
+  Serial.begin(9600);
 }
 
 /** 
  *  Cyclic executive.
  */
 void loop() {
-  /*if ( on ) {
+  if ( on ) {
     updateTemp();
-  }*/
-  stepFwdAndBack();
+  }
 }
 
 /**
  * Updates the position of the needle gauge to indicate the measured temperature.
  */
 void updateTemp() {
+  unsigned long time = millis();
   sensors.requestTemperatures(); // Send the command to get temperature reading
+  unsigned long timeTwo = millis();
+  Serial.print( "Temp reading took: " );
+  Serial.println( timeTwo-time );
+  time = millis();
   float temp = ( ( sensors.getTempCByIndex( 0 ) * 1.8 ) + 32 ); // Get temperature in degrees Fahrenheit
-  int newPosition = ( temp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
+  if ( avgTemp == -1 ) {
+    avgTemp = temp;
+  } else {
+    avgTemp = ( avgTemp + temp ) / 2;
+  }
+  int newPosition = ( avgTemp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
+  timeTwo = millis();
+  Serial.print( "Calculation took: " );
+  Serial.println( timeTwo-time );
   move( abs( position - newPosition ), newPosition > position );
 }
 
@@ -121,13 +139,13 @@ void stepFwdAndBack() {
     if ( on ) {
       move( increment, clockwise );
     }
-    delay(100);
+    //delay(100);
   }
   clockwise = false;
   while ( position > minPos ) {
     if ( on ) {
       move( increment, clockwise );
-      delay(100);
+      //delay(100);
     }
   }
 }
