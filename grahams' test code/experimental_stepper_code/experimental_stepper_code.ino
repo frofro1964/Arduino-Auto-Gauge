@@ -33,8 +33,8 @@ const int maxTemp = 263;
 const int minPos = 0;
 const int maxPos = 600;
 
-// Current needle position
-int position = 0;
+// Current needle position (default to max position value)
+int position = maxPos;
 
 // On/off toggle
 bool on = true;
@@ -79,19 +79,12 @@ void updateTemp() {
 }
 
 /**
- * Resets the needle to the starting position.
+ * Resets the needle to the starting position, then sweeps it the max distance in both directions.
  */
 void resetNeedle() {
-  digitalWrite( dirPin, LOW );
-  for( int x = maxPos; x >= minPos; x-- ) {
-    digitalWrite( stepPin, HIGH ); 
-    delayMicroseconds( 500 ); 
-    digitalWrite( stepPin, LOW ); 
-    delayMicroseconds( 500 ); 
-  }
-  position = minPos;
-  move( maxPos, true );
-  move( minPos, false );
+  move( maxPos - minPos, false );
+  move( maxPos - minPos, true );
+  move( maxPos - minPos, false );
 }
 
 /**
@@ -103,9 +96,9 @@ void move(int distance, bool clockwise) {
   bool validMove = ( ( clockwise ) ? ( ( position + distance ) <= maxPos ) : ( ( position - distance ) >= minPos ) );
   if ( validMove ) {
     if ( clockwise ) {
-      digitalWrite( dirPin, HIGH );
-    } else {
       digitalWrite( dirPin, LOW );
+    } else {
+      digitalWrite( dirPin, HIGH );
     }
     for( int x = 0; x < distance; x++ ) {
       digitalWrite( stepPin, HIGH ); 
@@ -118,7 +111,7 @@ void move(int distance, bool clockwise) {
 }
 
 /**
- * Steps the needle all the way forward, then back.
+ * Incrementally steps the needle all the way forward, then back.
  * Test function.
  */
 void stepFwdAndBack() {
