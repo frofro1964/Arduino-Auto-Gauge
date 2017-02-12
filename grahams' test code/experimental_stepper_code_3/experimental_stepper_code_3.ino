@@ -52,9 +52,6 @@ void setup() {
   // Set dial gauge to starting position
   resetNeedle();
 
-  // start serial port
-  //Serial.begin(9600);
-
   // Start I2C
   Wire.begin();
 
@@ -139,6 +136,8 @@ void updateTemp() {
   int numLines = ( temp / ( maxTemp-minTemp ) ) * 80;
   if ( newPosition != position ) {
     print_float( temp, 0 );
+    lcd.print( (char) 0xdf );
+    lcd.print( "F" );
     for ( int i=0; i<numLines/5; i++ ) {
       lcd.setCursor( i, 1 );
       lcd.print( (char) 0xff );
