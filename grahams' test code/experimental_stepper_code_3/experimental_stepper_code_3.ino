@@ -38,6 +38,8 @@ int position = maxPos;
 // On/off toggle
 bool on = true;
 
+byte chars[4] = {};
+
 void setup() {
   // Set up I/O pins
   pinMode( stepPin, OUTPUT ); 
@@ -55,6 +57,31 @@ void setup() {
 
   // Start I2C
   Wire.begin();
+
+  // Define custom LCD characters
+  byte emptyCharacter[8] = {
+    B00000,
+    B00000,
+    B00000,
+    B00000,
+    B00000,
+    B00000,
+    B00000,
+    B00000
+  };
+
+  byte firstCharacter = B10000;
+  byte currentCharacter = B00000;
+
+  for ( int i=0; i<5; i++ ) {
+    currentCharacter = currentCharacter | ( firstCharacter >> i );
+    byte characterArray[8] = { emptyCharacter };
+    for ( int j=0; j<8; j++ ) {
+      characterArray[j] = currentCharacter;
+    }
+    lcd.createChar( i, characterArray );
+    chars[i] = i;
+  }
 
   // Start LCD
   lcd.begin();
@@ -104,21 +131,21 @@ void print_float(float f, int num_digits){
 }
 
 /**
- * Updates the position of the needle gauge to indicate the measured temperature.
+ * Updates the needle gauge and LCD display to indicate the measured temperature.
  */
 void updateTemp() {
   float temp = checkTemp();
   int newPosition = ( temp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
-  int numSquares = ( temp / ( maxTemp-minTemp ) ) * 16;
+  int numLines = ( temp / ( maxTemp-minTemp ) ) * 80;
   if ( newPosition != position ) {
     print_float( temp, 0 );
-    for ( int i = 0; i < 16; i++ ) {
-      lcd.setCursor(i, 1);
-      if (i <= numSquares) {
-        lcd.print((char) 0xff);
-      } else {
-        lcd.print(" ");
-      }
+    for ( int i=0; i<numLines/5; i++ ) {
+      lcd.setCursor( i, 1 );
+      lcd.print( (char) 0xff );
+    }
+    lcd.setCursor( ( numLines/5 ), 1 );
+    if ( numLines%5 != 0 ) {
+      lcd.write( ( numLines%5 ) - 1 );
     }
     move( abs( position - newPosition ), newPosition > position );
   }
