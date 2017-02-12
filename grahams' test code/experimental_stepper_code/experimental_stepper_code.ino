@@ -5,6 +5,7 @@
  *  DS18B20 Temperature Sensor
  *  Switech X27 168 Stepper Motor
  */
+
 // Libraries needed for temperature sensor
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -21,7 +22,7 @@ const int tempPin = 6; // Connected to temperature sensor
 // OneWire instance to communicate with the temperature sensor
 OneWire oneWire(tempPin);
 
-// Pass the oneWire reference to a new Dallas Temperature instance
+// Dallas Temperature instance created from the oneWire reference
 DallasTemperature sensors(&oneWire);
 
 // Max/min values for temperature readings, in degrees Fahrenheit
@@ -54,23 +55,27 @@ void setup() {
   sensors.begin();
 
   // start serial port
-  Serial.begin(9600);
+  // Serial.begin(9600);
 }
 
 /** 
  *  Cyclic executive.
  */
 void loop() {
-   sensors.requestTemperatures(); // Send the command to get temperature reading
-   float temp = ( ( sensors.getTempCByIndex( 0 ) * 1.8 ) + 32 ); // Get temperature in degrees Fahrenheit
-   Serial.print( "Current temp: (F): " );
-   Serial.println( temp );
-   int newPosition = ( temp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
-   Serial.print( "Old position: " );
-   Serial.println( position );
-   Serial.print( "New position: " );
-   Serial.println( newPosition );
-   move( abs( position - newPosition ), newPosition > position );
+  /*if ( on ) {
+    updateTemp();
+  }*/
+  stepFwdAndBack();
+}
+
+/**
+ * Updates the position of the needle gauge to indicate the measured temperature.
+ */
+void updateTemp() {
+  sensors.requestTemperatures(); // Send the command to get temperature reading
+  float temp = ( ( sensors.getTempCByIndex( 0 ) * 1.8 ) + 32 ); // Get temperature in degrees Fahrenheit
+  int newPosition = ( temp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
+  move( abs( position - newPosition ), newPosition > position );
 }
 
 /**
@@ -78,33 +83,38 @@ void loop() {
  */
 void resetNeedle() {
   digitalWrite( dirPin, LOW );
-  for( int x = maxPos; x > minPos; x-- ) {
+  for( int x = maxPos; x >= minPos; x-- ) {
     digitalWrite( stepPin, HIGH ); 
     delayMicroseconds( 500 ); 
     digitalWrite( stepPin, LOW ); 
     delayMicroseconds( 500 ); 
   }
   position = minPos;
+  move( maxPos, true );
+  move( minPos, false );
 }
 
 /**
  * Moves the needle the specified distance in the specified direction.
- * @param dist : The distance to move.
+ * @param distance : The distance to move.
  * @param clockwise : True to move clockwise, false for counter-clockwise.
  */
-void move(int dist, bool clockwise) {
-   if ( clockwise ) {
-    digitalWrite( dirPin, HIGH );
-  } else {
-    digitalWrite( dirPin, LOW );
+void move(int distance, bool clockwise) {
+  bool validMove = ( ( clockwise ) ? ( ( position + distance ) <= maxPos ) : ( ( position - distance ) >= minPos ) );
+  if ( validMove ) {
+    if ( clockwise ) {
+      digitalWrite( dirPin, HIGH );
+    } else {
+      digitalWrite( dirPin, LOW );
+    }
+    for( int x = 0; x < distance; x++ ) {
+      digitalWrite( stepPin, HIGH ); 
+      delayMicroseconds( 5000 ); 
+      digitalWrite( stepPin, LOW ); 
+      delayMicroseconds( 5000 ); 
+    }
+    position = ( ( clockwise ) ? position + distance : position - distance );
   }
-  for( int x = 0; x < dist; x++ ) {
-    digitalWrite( stepPin, HIGH ); 
-    delayMicroseconds( 500 ); 
-    digitalWrite( stepPin, LOW ); 
-    delayMicroseconds( 500 ); 
-  }
-  position = ( ( clockwise ) ? position + dist : position - dist );
 }
 
 /**
@@ -114,26 +124,17 @@ void move(int dist, bool clockwise) {
 void stepFwdAndBack() {
   int increment = 10;
   bool clockwise = true;
-  int pos = minPos;
-  while ( pos < maxPos ) {
+  while ( position < maxPos ) {
     if ( on ) {
-      move(increment, clockwise);
-      pos += increment;
+      move( increment, clockwise );
     }
     delay(100);
   }
-  clockwise = !clockwise;
-}
-
-/**
- * Checks the pushbutton switch.
- */
-void checkButton() {
-  if ( digitalRead( btnPin ) ) {
-    delay ( 500 );
-    if ( digitalRead ( btnPin ) ) {
-      on = !on;
-      delay( 1000 );
+  clockwise = false;
+  while ( position > minPos ) {
+    if ( on ) {
+      move( increment, clockwise );
+      delay(100);
     }
   }
 }
