@@ -1,4 +1,5 @@
 /*  Use a stepper motor as a dial gauge to display measurements taken with a temperature sensor.
+ *  Also display temperature on an LCD display.
  *  Author: Graham Home
  *  Hardware:
  *  Arduino Nano
@@ -11,12 +12,17 @@
 
 // I2C libraries
 #include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#include <stdlib.h>
+
+// LCD display device
+LiquidCrystal_I2C lcd(0x3F,16,2); //Addr: 0x3F, 20 chars & 4 lines
 
 // I/O pin numbers
 const int stepPin = 9; // Set high to start steppin'
 const int dirPin = 8; // Sets direction
 const int btnPin = 3; // Connected to pushbutton
-const int tempPin = 6; // Connected to temperature sensor
 
 // Max/min values for temperature readings, in degrees Fahrenheit
 const int minTemp = 30;
@@ -44,8 +50,17 @@ void setup() {
   // Set dial gauge to starting position
   resetNeedle();
 
+  // start serial port
+  //Serial.begin(9600);
+
   // Start I2C
   Wire.begin();
+
+  // Start LCD
+  lcd.begin();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.clear();
 }
 
 /** 
@@ -58,18 +73,61 @@ void loop() {
 }
 
 /**
+ * Prints the specified float value on the LCD display.
+ */
+void print_float(float f, int num_digits){
+  lcd.clear();
+  int f_int;
+  int pows_of_ten[4] = {1, 10, 100, 1000};
+  int multiplier, whole, fract, d, n;
+
+  multiplier = pows_of_ten[num_digits];
+  if (f < 0.0)
+  {
+      f = -f;
+      lcd.print("-");
+  }
+  whole = (int) f;
+  fract = (int) (multiplier * (f - (float)whole));
+
+  lcd.print(whole);
+  if ( num_digits > 0 ) {
+    lcd.print(".");
+  }
+
+  for (n=num_digits-1; n>=0; n--) // print each digit with no leading zero suppression
+  {
+       d = fract / pows_of_ten[n];
+       lcd.print(d);
+       fract = fract % pows_of_ten[n];
+  }
+}
+
+/**
  * Updates the position of the needle gauge to indicate the measured temperature.
  */
 void updateTemp() {
   float temp = checkTemp();
   int newPosition = ( temp / ( maxTemp-minTemp ) ) * ( maxPos-minPos );
-  move( abs( position - newPosition ), newPosition > position );
+  int numSquares = ( temp / ( maxTemp-minTemp ) ) * 16;
+  if ( newPosition != position ) {
+    print_float( temp, 0 );
+    for ( int i = 0; i < 16; i++ ) {
+      lcd.setCursor(i, 1);
+      if (i <= numSquares) {
+        lcd.print((char) 0xff);
+      } else {
+        lcd.print(" ");
+      }
+    }
+    move( abs( position - newPosition ), newPosition > position );
+  }
 }
 
 /**
  * Gets a temperature measurement from the sensor in degrees Fahrenheit
  */
-unsigned int checkTemp() {
+float checkTemp() {
   byte address, Temp_H, Temp_L;
   unsigned int H_dat, T_dat;
   address = 0x27;
@@ -92,12 +150,10 @@ unsigned int checkTemp() {
 }
 
 /**
- * Resets the needle to the starting position
+ * Resets the needle to the starting position.
  */
 void resetNeedle() {
   move( maxPos - minPos, false );
-  //move( maxPos - minPos, true );
-  //move( maxPos - minPos, false );
 }
 
 /**
@@ -140,8 +196,8 @@ void stepFwdAndBack() {
   while ( position > minPos ) {
     if ( on ) {
       move( increment, clockwise );
-      delay(100);
     }
+    delay(100);
   }
 }
 
